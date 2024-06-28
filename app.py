@@ -21,8 +21,8 @@ styles = {
 }
 
 # Incorporate data
-gff3 = pd.read_csv("https://raw.githubusercontent.com/slt666666/NLRome_render/main/data/NLR_gff3.csv", index_col=0)
-NLRtracker = pd.read_csv("https://raw.githubusercontent.com/slt666666/NLRome_render/main/data/NLRtracker.tsv", sep="\t")
+gff3 = pd.read_csv(DATA_PATH.joinpath("NLR_gff3.csv"), index_col=0)
+NLRtracker = pd.read_csv(DATA_PATH.joinpath("NLRtracker.tsv"), sep="\t")
 NLRtracker.index = [i[:i.find(".")] for i in NLRtracker.seqname.values]
 domains = []
 for i in gff3.iloc[:, 8].str[3:22].values:
@@ -54,9 +54,9 @@ table_data = pd.DataFrame({
 })
 chromosomes = ["All"]
 chromosomes.extend(gff3.iloc[:, 0].unique())
-RNA_seq_data = pd.read_csv("https://raw.githubusercontent.com/slt666666/NLRome_render/main/data/sample_RNAseq_counts.csv", index_col=0)
+RNA_seq_data = pd.read_csv(DATA_PATH.joinpath("sample_RNAseq_counts.csv"), index_col=0)
 
-tree = Phylo.read(DATA_PATH.joinpath("test-tree.xml"), 'newick')
+tree = Phylo.read(DATA_PATH.joinpath("test-tree.xml"), 'nphyloxmlewick')
 
 def get_circular_tree_data(tree, order='level', dist=1, start_angle=0, end_angle=360, start_leaf='first'):
     """Define  data needed to get the Plotly plot of a circular tree
