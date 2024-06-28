@@ -56,7 +56,7 @@ chromosomes = ["All"]
 chromosomes.extend(gff3.iloc[:, 0].unique())
 RNA_seq_data = pd.read_csv(DATA_PATH.joinpath("sample_RNAseq_counts.csv"), index_col=0)
 
-tree = Phylo.read(DATA_PATH.joinpath("test-tree.xml"), 'nphyloxmlewick')
+tree = Phylo.read(DATA_PATH.joinpath("test-tree.xml"), 'phyloxml')
 
 def get_circular_tree_data(tree, order='level', dist=1, start_angle=0, end_angle=360, start_leaf='first'):
     """Define  data needed to get the Plotly plot of a circular tree
