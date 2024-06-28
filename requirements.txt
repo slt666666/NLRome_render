@@ -4,4 +4,5 @@ pandas
 plotly
 dash_bootstrap_components
 biopython
+ipywidgets
 gunicorn

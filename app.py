@@ -5,6 +5,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
+import ipywidgets as ipw
 from Bio import Phylo
 import pathlib
 
