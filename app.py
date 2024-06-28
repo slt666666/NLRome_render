@@ -6,6 +6,11 @@ import plotly.express as px
 import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
 from Bio import Phylo
+import pathlib
+
+#path
+BASE_PATH = pathlib.Path(__file__).parent.resolve()
+DATA_PATH = BASE_PATH.joinpath("data").resolve()
 
 styles = {
     'pre': {
@@ -50,7 +55,7 @@ chromosomes = ["All"]
 chromosomes.extend(gff3.iloc[:, 0].unique())
 RNA_seq_data = pd.read_csv("https://raw.githubusercontent.com/slt666666/NLRome_render/main/data/sample_RNAseq_counts.csv", index_col=0)
 
-tree = Phylo.read('../data/test.nwk', 'newick')
+tree = Phylo.read(DATA_PATH.joinpath("test.nwk"), 'newick')
 
 def get_circular_tree_data(tree, order='level', dist=1, start_angle=0, end_angle=360, start_leaf='first'):
     """Define  data needed to get the Plotly plot of a circular tree
