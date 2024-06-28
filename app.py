@@ -15,10 +15,7 @@ styles = {
 }
 
 # Incorporate data
-NLRs = pd.read_csv("../data/NLRtracker_result/NLR.lst", header=None).iloc[:, 0].values
-gff3 = pd.read_csv("../data/iwgsc_refseqv2.1_annotation_200916_HC.gff3", sep="\t", comment="#", header=None)
-gff3 = gff3[gff3.iloc[:, 2] == "gene"]
-gff3 = gff3[gff3.iloc[:, 8].str.contains("|".join([i[:i.find(".")] for i in NLRs]))]
+gff3 = pd.read_csv("../data/NLR_gff3.csv", index_col=0)
 NLRtracker = pd.read_csv("../data/NLRtracker_result/NLRtracker.tsv", sep="\t")
 NLRtracker.index = [i[:i.find(".")] for i in NLRtracker.seqname.values]
 domains = []
