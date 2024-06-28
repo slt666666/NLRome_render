@@ -240,7 +240,7 @@ pl_colorscale=[[0.0, 'rgb(10,10,150)'],#color for leafs that haven't associated 
                [0.9, 'rgb(63, 170, 89)'],              
                [1.0, 'rgb(25, 151, 79)']]
  
- trace_nodes=dict(type='scatter',
+trace_nodes=dict(type='scatter',
            x=xnodes,
            y= ynodes, 
            mode='markers',
@@ -489,4 +489,4 @@ def update_data(relayoutData, chr_chosen, exp_chosen):
 if __name__ == '__main__':
     app.run_server(debug=False)
     # app.run(debug=True, jupyter_mode="external")
-#     app.run(debug=True)
+    # app.run(debug=True)
