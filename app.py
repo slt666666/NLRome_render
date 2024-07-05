@@ -42,6 +42,7 @@ table_data = pd.merge(table_data, tree_id_table, on="NLR id")
 # Initialize the app - incorporate a Dash Bootstrap theme
 external_stylesheets = [dbc.themes.CERULEAN]
 app = Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
+server = app.server
 
 # App layout
 app.layout = dbc.Container([
