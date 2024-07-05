@@ -1,12 +1,12 @@
 # Import packages
-from dash import Dash, html, dash_table, dcc, callback, Output, Input, ctx
+from dash import Dash, html, dash_table, dcc, callback, Output, Input, Patch, ctx
 import pandas as pd
 import numpy as np
+from Bio import Phylo
 import plotly.express as px
 import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
 import ipywidgets as ipw
-from Bio import Phylo
 import pathlib
 
 from modules.phylogenetic_tree import make_tree_figure
