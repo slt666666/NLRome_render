@@ -9,476 +9,245 @@ import ipywidgets as ipw
 from Bio import Phylo
 import pathlib
 
+from modules.phylogenetic_tree import make_tree_figure
+from modules.genome_view import make_gene_markers
+from modules.additional_data import make_expression_figure, make_chippeak_figure
+
 #path
+# BASE_PATH = pathlib.Path('__file__').parent.resolve()
 BASE_PATH = pathlib.Path(__file__).parent.resolve()
+# DATA_PATH = BASE_PATH.joinpath("../data").resolve()
 DATA_PATH = BASE_PATH.joinpath("data").resolve()
 
-styles = {
-    'pre': {
-        'border': 'thin lightgrey solid',
-        'overflowX': 'scroll'
-    }
-}
+# read data
+table_data = pd.read_csv(DATA_PATH.joinpath("test_table_data.csv"))
 
-# Incorporate data
-gff3 = pd.read_csv(DATA_PATH.joinpath("NLR_gff3.csv"), index_col=0)
-NLRtracker = pd.read_csv(DATA_PATH.joinpath("NLRtracker.tsv"), sep="\t")
-NLRtracker.index = [i[:i.find(".")] for i in NLRtracker.seqname.values]
-domains = []
-for i in gff3.iloc[:, 8].str[3:22].values:
-    if sum(NLRtracker.index.values == i) == 1:
-        domains.append(NLRtracker.loc[i, "Domain"])
-    elif sum(NLRtracker.index.values == i) > 1:
-        domains.append(" or ".join(NLRtracker.loc[i, "Domain"].unique()))
-    else:
-        domains.append("None")
-colors = []
-for i in domains:
-    if i.find("CC") >= 0:
-        colors.append("royalblue")
-    elif i.find("TIR") >= 0:
-        colors.append("yellow")
-    elif i.find("RPW8") >= 0:
-        colors.append("purple")
-    else:
-        colors.append("lightgray")
-        
-table_data = pd.DataFrame({
-    "NLR id":gff3.iloc[:, 8].str[3:22].values,
-    "Chr":gff3.iloc[:, 0],
-    "Start":gff3.iloc[:, 3],
-    "End":gff3.iloc[:, 4],
-    "Strand":gff3.iloc[:, 6],
-    "Domain":domains,
-    "Color":colors,
-})
+# get chromosomes
 chromosomes = ["All"]
-chromosomes.extend(gff3.iloc[:, 0].unique())
+chromosomes.extend(table_data.Chr.unique())
+
+# read expression data
 RNA_seq_data = pd.read_csv(DATA_PATH.joinpath("sample_RNAseq_counts.csv"), index_col=0)
 
-tree = Phylo.read(DATA_PATH.joinpath("test-tree.xml"), 'phyloxml')
+# radio items
+histone_list = ["H3K4me3", "H3K9ac", "H3K27me3"]
+chip_treats = ["ABA", "CS_seedlings", "CS_leaf", "CS_spikelet_Feekes10", "MeJA", "SA", "Not displayed"]
 
-def get_circular_tree_data(tree, order='level', dist=1, start_angle=0, end_angle=360, start_leaf='first'):
-    """Define  data needed to get the Plotly plot of a circular tree
-    """
-    # tree:  an instance of Bio.Phylo.Newick.Tree or Bio.Phylo.PhyloXML.Phylogeny
-    # order: tree  traversal method to associate polar coordinates to its nodes
-    # dist:  the vertical distance between two consecutive leafs in the associated rectangular tree layout
-    # start_angle:  angle in degrees representing the angle of the first leaf mapped to a circle
-    # end_angle: angle in degrees representing the angle of the last leaf
-    # the list of leafs mapped in anticlockwise direction onto circles can be tree.get_terminals() 
-    # or its reversed version tree.get_terminals()[::-1]. 
-    # start leaf: is a keyword with two possible values"
-    # 'first': to map  the leafs in the list tree.get_terminals() onto a circle,
-    #         in the counter-clockwise direction
-    # 'last': to map  the leafs in the  list, tree.get_terminals()[::-1] 
-    
-    start_angle *= np.pi/180 # conversion to radians
-    end_angle *= np.pi/180
-    
-    def get_radius(tree):
-        """
-        Associates to  each clade root its radius, equal to the distance from that clade to the tree root
-        returns dict {clade: node_radius}
-        """
-        node_radius = tree.depths()
-        
-        #  If the tree did not record  the branch lengths  assign  the unit branch length
-        #  (ex: the case of a newick tree "(A, (B, C), (D, E))")
-        if not np.count_nonzero(node_radius.values()):
-            node_radius = tree.depths(unit_branch_lengths=True)
-        return node_radius
-   
-    
-    def get_vertical_position(tree):
-        """
-        returns a dict {clade: ycoord}, where y-coord is the cartesian y-coordinate 
-        of a  clade root in a rectangular phylogram
-        
-        """
-        n_leafs = tree.count_terminals() # Counts the number of tree leafs.
-        
-        # Assign y-coordinates to the tree leafs
-        if start_leaf == 'first':
-            node_ycoord = dict((leaf, k) for k, leaf in enumerate(tree.get_terminals()))
-        elif start_leaf == 'last':
-            node_ycoord = dict((leaf, k) for k, leaf in enumerate(reversed(tree.get_terminals())))
-        else:
-            raise ValueError("start leaf can be only 'first' or 'last'")
-            
-        def assign_ycoord(clade):#compute the y-coord for the root of this clade
-            for subclade in clade:
-                if subclade not in node_ycoord: # if the subclade root hasn't a y-coord yet
-                    assign_ycoord(subclade)
-            node_ycoord[clade] = 0.5 * (node_ycoord[clade.clades[0]] + node_ycoord[clade.clades[-1]])
+# make phylogenetic tree
+tree_fig, tree_id_table, tree_ids_len = make_tree_figure(DATA_PATH.joinpath("CS_tree.xml"))
 
-        if tree.root.clades:
-            assign_ycoord(tree.root)
-        return node_ycoord
-
-    node_radius = get_radius(tree)
-    node_ycoord = get_vertical_position(tree)
-    y_vals = node_ycoord.values()
-    ymin, ymax = min(y_vals), max(y_vals)
-    ymin -= dist # this dist subtraction is necessary to avoid coincidence of the  first and last leaf angle
-                 # when the interval  [ymin, ymax] is mapped onto [0, 2pi],
-                
-    def ycoord2theta(y):
-        # maps an y in the interval [ymin-dist, ymax] to the interval [radian(start_angle), radian(end_angle)]
-        
-        return start_angle + (end_angle - start_angle) * (y-ymin) / float(ymax-ymin)
-
-    
-        
-
-    def get_points_on_lines(linetype='radial', x_left=0, x_right=0, y_right=0,  y_bot=0, y_top=0):
-        """
-        - define the points that generate a radial branch and the circular arcs, perpendicular to that branch
-         
-        - a circular arc (angular linetype) is defined by 10 points on the segment of ends
-        (x_bot, y_bot), (x_top, y_top) in the rectangular layout,
-         mapped by the polar transformation into 10 points that are spline interpolated
-        - returns for each linetype the lists X, Y, containing the x-coords, resp y-coords of the
-        line representative points
-        """
-       
-        if linetype == 'radial':
-            theta = ycoord2theta(y_right) 
-            X = [x_left*np.cos(theta), x_right*np.cos(theta), None]
-            Y = [x_left*np.sin(theta), x_right*np.sin(theta), None]
-        
-        elif linetype == 'angular':
-            theta_b = ycoord2theta(y_bot)
-            theta_t = ycoord2theta(y_top)
-            t = np.linspace(0,1, 10)# 10 points that span the circular arc 
-            theta = (1-t) * theta_b + t * theta_t
-            X = list(x_right * np.cos(theta)) + [None]
-            Y = list(x_right * np.sin(theta)) + [None]
-        
-        else:
-            raise ValueError("linetype can be only 'radial' or 'angular'")
-       
-        return X,Y   
-        
-    
-
-    def get_line_lists(clade,  x_left,  xlines, ylines, xarc, yarc):
-        """Recursively compute the lists of points that span the tree branches"""
-        
-        # xlines, ylines  - the lists of x-coords, resp y-coords of radial edge ends
-        # xarc, yarc - the lists of points generating arc segments for tree branches
-        
-        x_right = node_radius[clade]
-        y_right = node_ycoord[clade]
-   
-        X,Y = get_points_on_lines(linetype='radial', x_left=x_left, x_right=x_right, y_right=y_right)
-   
-        xlines.extend(X)
-        ylines.extend(Y)
-   
-        if clade.clades:
-           
-            y_top = node_ycoord[clade.clades[0]]
-            y_bot = node_ycoord[clade.clades[-1]]
-       
-            X,Y = get_points_on_lines(linetype='angular',  x_right=x_right, y_bot=y_bot, y_top=y_top)
-            xarc.extend(X)
-            yarc.extend(Y)
-       
-            # get and append the lists of points representing the  branches of the descedants
-            for child in clade:
-                get_line_lists(child, x_right, xlines, ylines, xarc, yarc)
-
-    xlines = []
-    ylines = []
-    xarc = []
-    yarc = []
-    get_line_lists(tree.root,  0, xlines, ylines, xarc, yarc)  
-    xnodes = []
-    ynodes = []
-
-    for clade in tree.find_clades(order='preorder'): #it was 'level'
-        theta = ycoord2theta(node_ycoord[clade])
-        xnodes.append(node_radius[clade]*np.cos(theta))
-        ynodes.append(node_radius[clade]*np.sin(theta))
-        
-    return xnodes, ynodes,  xlines, ylines, xarc, yarc
-
-traverse_order = 'preorder'
-
-all_clades=list(tree.find_clades(order=traverse_order))
-for k in range(len((all_clades))):
-    all_clades[k].id=k
-    
-xnodes, ynodes,  xlines, ylines, xarc, yarc = get_circular_tree_data(tree, order=traverse_order, start_leaf='last')
-
-tooltip=[]
-color=[]
-for clade in tree.find_clades(order=traverse_order):
-    if clade.name and clade.confidence and clade.branch_length:
-        tooltip.append(f"id: {clade.id}<br>name: {clade.name}<br>branch-length: {clade.branch_length}\
-                    <br>confidence: {int(clade.confidence.value)}")
-        color.append[clade.confidence.value]
-    elif clade.name is None and clade.branch_length is not None and clade.confidence is not None: 
-        color.append(clade.confidence.value)
-        tooltip.append(f"id: {clade.id}<br>branch-length: {clade.branch_length}\
-                    <br>confidence: {int(clade.confidence.value)}")
-    elif clade.name and clade.branch_length and clade.confidence is None:
-        tooltip.append(f"id: {clade.id}<br>name: {clade.name}<br>branch-length: {clade.branch_length}")
-        color.append(-1)
-    else: 
-        tooltip.append('')
-        color.append(-1)
-
-size=[9  if c!=-1 else 7 for c in color]
-
-pl_colorscale=[[0.0, 'rgb(10,10,150)'],#color for leafs that haven't associated a confidence
-               [0.001, 'rgb(10,10,150)'],
-               [0.001, 'rgb(214, 47, 38)'],   # in fact the colorscale starts here          
-               [0.1, 'rgb(214, 47, 38)'],
-               [0.2, 'rgb(244, 109, 67)'],
-               [0.3, 'rgb(252, 172, 96)'],
-               [0.4, 'rgb(254, 224, 139)'],
-               [0.5, 'rgb(254, 254, 189)'],
-               [0.6, 'rgb(217, 239, 139)'],
-               [0.7, 'rgb(164, 216, 105)'],
-               [0.8, 'rgb(102, 189, 99)'],
-               [0.9, 'rgb(63, 170, 89)'],              
-               [1.0, 'rgb(25, 151, 79)']]
- 
-trace_nodes=dict(type='scatter',
-           x=xnodes,
-           y= ynodes, 
-           mode='markers',
-           marker=dict(color=color,
-                       size=size, colorscale=pl_colorscale, 
-                       colorbar=dict(thickness=20, dtick=10, ticklen=4, title='confidence')),
-           text=tooltip, 
-           hoverinfo='text',
-           opacity=1)
-
-trace_radial_lines=dict(type='scatter',
-                       x=xlines,
-                       y=ylines, 
-                       mode='lines',
-                       line=dict(color='rgb(20,20,20)', width=1),
-                       hoverinfo='none')
-
-trace_arcs=dict(type='scatter',
-                       x=xarc,
-                       y=yarc,
-                       mode='lines',
-                       line=dict(color='rgb(20,20,20)', width=1, shape='spline'),
-                       hoverinfo='none')
-layout=dict(
-            font=dict(family='Balto',size=14),
-            width=500,
-            height=500,
-            autosize=False,
-            showlegend=False,
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False), 
-            hovermode='closest',
-            plot_bgcolor='rgb(245,245,245)',
-            margin=dict(t=10, b=10, l=10, r=10),
-           )
-
+# merge table_data and tree_id_table
+table_data = pd.merge(table_data, tree_id_table, on="NLR id")
 
 # Initialize the app - incorporate a Dash Bootstrap theme
 external_stylesheets = [dbc.themes.CERULEAN]
-app = Dash(__name__, external_stylesheets=external_stylesheets)
-server = app.server
+app = Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
 
 # App layout
 app.layout = dbc.Container([
-    dbc.Row([
-        html.Div('Wheat NLRome', className="text-primary text-center fs-3")
-    ]),
     
     dbc.Row([
         dbc.Col([
-            html.Label('Chromosome'),
-            dcc.Dropdown(chromosomes,
-                         chromosomes[0],
-                         id='dropdown-buttons-final'
-                        ),
-            
-            html.Label('Expression data'),
-            dcc.Checklist(RNA_seq_data.columns.values,
-                          [RNA_seq_data.columns.values[0]],
-                          id='dropdown-buttons-exp'
-                         ),
-        ], width=2),
+            html.Div('Wheat NLRome', className="text-primary text-center fs-3"),
+            html.Br(),
+            html.P('Chromosome'),
+            dcc.Dropdown(
+                chromosomes,
+                chromosomes[0],
+                id='dropdown-buttons-chr'
+            ),
+            html.Br(),
+            html.Div('Additional data', className="fs-5"),
+            html.P('Expression data'),
+            dcc.Dropdown(
+                RNA_seq_data.columns.values,
+                [RNA_seq_data.columns.values[0], RNA_seq_data.columns.values[1]],
+                id='dropdown-content-exp',
+                multi=True,
+            ),
+            html.Br(),
+            html.P('ChIP-seq Peak'),
+            dcc.Dropdown(
+                histone_list,
+                histone_list[0],
+                id='dropdown-content-chip1',
+            ),
+            dcc.Dropdown(
+                chip_treats,
+                chip_treats[-1],
+                id='dropdown-content-chip2',
+            ),
+            html.Br(),
+            html.P('Core NLRs'),
+            html.Div('Not yet...')
+        ],
+        id="left-column",
+        width=2
+        ),
         
         dbc.Col([
             dbc.Row([
-                html.Label('NLR locations'),
+                html.B('NLR locations', className="text-center fs-4"),
+                html.Div(
+                    className="text-center",
+                    children="Click and drag on the below plot to Zoom-in and double-click to Zoom-out completely!",
+                ),
+                html.Hr(),
                 dbc.Col([
                     dcc.Loading(
                         [dcc.Graph(figure={}, id='location-graph')],
                         type="circle",
                     ),
                 ]),
-            ]),
-            
-            dbc.Row([
-                dbc.Col([
-                    html.Label('Expression data'),
-                    dcc.Graph(figure={}, id='my-first-graph-final')
-                ], width=6), 
-                dbc.Col([
-                    html.Label('Phylogenetic tree (from NBARC)'),
-                    dcc.Graph(figure=go.FigureWidget(data=[trace_radial_lines, trace_arcs, trace_nodes], layout=layout))
-                ], width=6), 
-            ]),
-            
-            dbc.Row([
-                html.Label('NLR list'),
-                html.Div(id="update-table"),
-            ]),
-        ], width=10)
-    ])
-], fluid=True)
+            ], id="location-card"),
 
-# Add controls to build the interaction
+            dbc.Row([
+                dbc.Col([
+                    html.B('Phylogenetic tree', className="fs-4"),
+                    dcc.Graph(figure=tree_fig, id='phylogenetic-tree')
+                ],
+                width=4,
+                id="phylogeny-card"), 
+                dbc.Col([
+                    dbc.Row(id="additional-data")
+                ],
+                width=8,
+                id="additional-card"), 
+            ]),
+            
+            dbc.Row([
+                html.B('NLR list', className="text-center fs-4"),
+                html.Div(id="NLR-list-table"),
+            ]),
+        ],
+        width=10,
+        id="right-column")
+    ])
+], fluid=False)
+
+# Show red marker in phylogenetic tree triggered by hover NLRs
 @callback(
-    Output(component_id='location-graph', component_property='figure'),
-    Input(component_id='dropdown-buttons-final', component_property='value')
+    Output('phylogenetic-tree', 'figure'),
+    Input('location-graph', 'hoverData'),
+)
+def display_select_NLR_in_tree(hover_info):
+    if hover_info is not None:
+        edge_id = table_data.loc[(table_data.Chr == hover_info['points'][0]['y']) & (table_data.Graph_pos == hover_info['points'][0]['x']), "clade_id"]
+    else:
+        edge_id = None
+    patched_figure = Patch()
+    if edge_id is not None:
+        new_size = np.repeat(0, tree_ids_len)
+        new_size[edge_id] = 10
+        patched_figure["data"][2]["marker"]["size"] = new_size
+    return patched_figure
+
+# Show NLR locations in genome
+@callback(
+    Output('location-graph', 'figure'),
+    Input('dropdown-buttons-chr', 'value'),
 )
 def update_graph(chr_chosen):
-    fig = go.Figure()
-    if chr_chosen == "All":
-        for tmp_chr in table_data.Chr.unique():
-            tmp_table = table_data[table_data.Chr == tmp_chr]
-            fig.add_traces(
-                go.Scatter(
-                    x=[0, tmp_table.End.max()],
-                    y=[tmp_chr, tmp_chr],
-                    mode='lines',
-                    hoverinfo='skip',
-                    line=dict(color="gray")
-                )
-            )
-            for i in range(tmp_table.shape[0]):
-                stop = tmp_table.iloc[i, :].End
-                fig.add_traces(
-                    go.Scatter(
-                        x=[stop],
-                        y=[tmp_chr],
-                        mode='markers',
-                        hoverinfo='text',
-                        hovertext=f'{tmp_table.iloc[i, :]["NLR id"]}<br>{tmp_table.iloc[i, :].Domain}',
-                        name=tmp_table.iloc[i, :]["NLR id"],
-                        marker=dict(
-                            symbol='arrow-right' if tmp_table.iloc[i, :].Strand == "+" else 'arrow-left',
-                            color=tmp_table.iloc[i, :].Color,
-                            size=14,
-                            line=dict(
-                                width=2,
-                                color='black'
-                            )
-                        )
-                    )
-                )
-        fig.update_layout(
-            showlegend=False,
-            height=800,
-            margin=dict(t=10, b=10, l=10, r=40),
-        )
-        fig.update_yaxes(
-            categoryorder='array',
-            categoryarray=table_data.Chr.unique()[::-1],
-            fixedrange=True
-        )
-    else:
-        chr_table = table_data[table_data.Chr == chr_chosen]
-        fig.add_traces(
-            go.Scatter(
-                x=[0, chr_table.End.max()],
-                y=[chr_chosen, chr_chosen],
-                mode='lines',
-                hoverinfo='skip',
-                line=dict(color="gray")
-            )
-        )
-        for i in range(chr_table.shape[0]):
-            start = chr_table.iloc[i, :].Start
-            stop = chr_table.iloc[i, :].End
-            fig.add_trace(
-                go.Scatter(
-                    x=[(start+stop)/2],
-                    y=[chr_chosen],
-                    hoverinfo='text',
-                    hovertext=f'{chr_table.iloc[i, :]["NLR id"]}<br>{chr_table.iloc[i, :].Domain}',
-                    name=chr_table.iloc[i, :]["NLR id"],
-                    mode='markers',
-                    marker=dict(
-                        symbol='arrow-right' if chr_table.iloc[i, :].Strand == "+" else 'arrow-left',
-                        color=chr_table.iloc[i, :].Color,
-                        size=20,
-                        line=dict(
-                            width=3,
-                            color='black'
-                        )
-                    )
-                ),
-            )
-        fig.update_layout(
-            xaxis_rangeslider_visible=True,
-            showlegend=False,
-            margin=dict(t=10, b=20, l=10, r=10),
-            height=200,
-        )
-        fig.update_yaxes(
-            type='category',
-            fixedrange=True
-        )
+    fig = make_gene_markers(table_data, chr_chosen)
     return fig
 
+# Show Additional info
 @callback(
-    Output(component_id='update-table', component_property='children'),
-    Output(component_id='my-first-graph-final', component_property='figure'),
-    Input(component_id='location-graph', component_property='relayoutData'),
-    Input(component_id='dropdown-buttons-final', component_property='value'),
-    Input(component_id='dropdown-buttons-exp', component_property='value'),
+    Output('additional-data', 'children'),
+    Input('location-graph', 'relayoutData'),
+    Input('dropdown-buttons-chr', 'value'),
+    [Input(f'dropdown-content-{i}', 'value') for i in ["exp", "chip1", "chip2"]],
+    prevent_initial_call=True,
+)
+def update_additional_info(relayoutData, chr_chosen, exp_chosen, chip1_chosen, chip2_chosen):
+    div = []
+    if chr_chosen == "All":
+        div.extend(
+            [
+                html.B("Additional data", className="fs-4"),
+                html.Br(),
+                html.P('Please select chromosome/scaffold/contig from the dropdown menu on the left.')
+            ]
+        )
+    else:
+        if ("xaxis.range[0]" not in relayoutData) | (ctx.triggered_id == "dropdown-buttons-chr"):
+            tmp_table = table_data[table_data.Chr == chr_chosen]
+        else:
+            xmin = relayoutData["xaxis.range[0]"]
+            xmax = relayoutData["xaxis.range[1]"]
+            tmp_table = table_data[(table_data.Chr == chr_chosen) & (table_data.Start >= xmin) & (table_data.End <= xmax)]
+        
+        add_figs = []
+        # Expression bar plots
+        if len(exp_chosen) >= 1:
+            add_figs.append(
+                [
+                    html.B("Expression data", className="fs-4"),
+                    html.Div("TPM values"),
+                    dcc.Graph(figure=make_expression_figure(RNA_seq_data, exp_chosen, tmp_table["NLR id"].values))
+                ]
+            )
+        
+        # Chip-seq peak plots
+        if chip2_chosen != "Not displayed":
+            showed_NLR_num = tmp_table.shape[0] 
+            if showed_NLR_num > 3:
+                add_figs.append(
+                    [
+                        html.B("ChIP-seq Peak", className="fs-4"),
+                        html.P('Please Zoom-in more! (show 1~3 NLRs)')
+                    ]
+                )
+            elif showed_NLR_num >= 1:
+                figs = make_chippeak_figure(chip1_chosen, chip2_chosen, tmp_table, DATA_PATH)
+                add_figs.append(
+                    [
+                        html.B("ChIP-seq Peak", className="fs-4"),
+                        html.Div("Reads per genome coverage"),
+                        dbc.Row(
+                            [
+                                dcc.Graph(figure=figs),
+                            ],
+                        ),
+                    ]
+                )
+            else:
+                add_figs.append(
+                    [
+                        html.B("ChIP-seq Peak", className="fs-4"),
+                        dbc.Row(
+                            [
+                                html.P('No NLRs')
+                            ]
+                        ),
+                    ]
+                )
+        div = [dbc.Col(each_fig, width=12//len(add_figs)) for each_fig in add_figs]
+    return div
+
+# Show other information of viewd NLRs
+@callback(
+    Output('NLR-list-table', 'children'),
+    Input('location-graph', 'relayoutData'),
+    Input('dropdown-buttons-chr', 'value'),
     prevent_initial_call=True
 )
-def update_data(relayoutData, chr_chosen, exp_chosen):
+def update_data(relayoutData, chr_chosen):
     if chr_chosen == "All":
         tmp_df = table_data
-        fig = go.Figure()
     else:
-        if ("xaxis.range[0]" not in relayoutData) | (ctx.triggered_id == "dropdown-buttons-final"):
+        if ("xaxis.range[0]" not in relayoutData) | (ctx.triggered_id == "dropdown-buttons-chr"):
             tmp_table = table_data[table_data.Chr == chr_chosen]
         else:
             xmin = relayoutData["xaxis.range[0]"]
             xmax = relayoutData["xaxis.range[1]"]
             tmp_table = table_data[(table_data.Chr == chr_chosen) & (table_data.Start >= xmin) & (table_data.End <= xmax)]
         tmp_df = tmp_table
-        tmp_NLRs = tmp_table["NLR id"].values
-        fig = go.Figure()
-        for exp_name in exp_chosen:
-            fig.add_trace(
-                go.Bar(
-                    y=RNA_seq_data.loc[tmp_NLRs, :].loc[:, exp_name].values, 
-                    x=tmp_NLRs,
-                    name=exp_name
-                ),
-            )
-        fig.update_layout(
-            margin=dict(t=10, b=10, l=10, r=10),
-            legend=dict(
-                yanchor="top",
-                y=0.99,
-                xanchor="right",
-                x=0.99
-            )
-        )
     
     return html.Div(
         [
             dash_table.DataTable(data=tmp_df.loc[:, ["NLR id","Chr","Start","End","Strand","Domain"]].to_dict('records'),
-                                 page_size=8,
+                                 page_size=10,
                                  style_header={
                                     'backgroundColor': 'rgb(30, 30, 30)',
                                     'color': 'white'
@@ -487,12 +256,14 @@ def update_data(relayoutData, chr_chosen, exp_chosen):
                                     'backgroundColor': 'rgb(50, 50, 50)',
                                     'color': 'white'
                                  },
-                                 style_table={'overflowX': 'auto'})
+                                 style_table={'overflowX': 'auto'},
+                                 id="table")
         ]
-    ), fig
+    )
+
 
 # Run the app
 if __name__ == '__main__':
-    # app.run_server(debug=False)
+    app.run_server(debug=False)
     # app.run(debug=True, jupyter_mode="external")
-    app.run(debug=True)
+    # app.run(debug=True)

@@ -1,0 +1,80 @@
+
+@font-face {
+    font-family: Acumin;
+    font-weight: bold;
+    src: url("Acumin-BdPro.otf") format("opentype");
+}
+
+#app-container {
+    width: 100%;
+    max-width: none;
+}
+
+body {
+    background-color: #f9f9f9;
+    color: #333333;
+    font-size: 15px;
+    margin: 0px;
+}
+
+p {
+    font-weight: bold;
+}
+
+p, ul, ol {
+    margin-bottom: .5rem;
+}
+
+hr {
+    margin: 0.3rem 0rem;
+}
+
+H5 {
+    color: #2c8cff;
+    font-weight: 300;
+}
+
+H5, H3 {
+    font-family: Acumin, "Helvetica Neue", sans-serif;
+}
+
+#left-column {
+    margin-top: 20px;
+    padding: 0rem 1rem;
+    min-height: calc(100vh - 5.5rem);
+}
+
+#right-column {
+    margin-top: 20px;
+    background-color: #f4f4f4;
+    padding: 1rem 2rem;
+    min-height: calc(100vh - 5.5rem);
+}
+
+#location-card {
+    background-color: #FFFFFF;
+    margin-bottom: 0.5rem;
+}
+
+#additional-card {
+    background-color: #FFFFFF;
+    margin-bottom: 0.5rem;
+}
+
+#phylogeny-card {
+    background-color: #FFFFFF;
+    margin-bottom: 0.5rem;
+}
+
+#checklist-content-exp{
+    padding: 0rem 0.5rem;
+}
+
+#dropdown-content-chip{
+    padding: 0rem 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+#checklist-content-chip{
+    padding: 0rem 0.5rem;
+}
