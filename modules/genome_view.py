@@ -123,9 +123,15 @@ def make_gene_markers_each_chr(table_data, chr_chosen):
     )
     return fig
 
-def make_gene_markers(table_data, chr_chosen):
+def make_gene_markers(table_data, chr_chosen, zoom_range):
     if chr_chosen == "All":
         fig = make_gene_markers_all_chr(table_data)
     else:
         fig = make_gene_markers_each_chr(table_data, chr_chosen)
+    if zoom_range != None:
+        fig.update_layout(
+            xaxis=dict(
+                range=zoom_range
+            )
+        )
     return fig
