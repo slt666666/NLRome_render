@@ -1,5 +1,5 @@
 # Import packages
-from dash import Dash, html, dash_table, dcc, callback, Output, Input, Patch, ctx
+from dash import Dash, html, dash_table, dcc, callback, Output, Input, State, Patch, ctx
 import pandas as pd
 import numpy as np
 from Bio import Phylo
