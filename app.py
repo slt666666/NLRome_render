@@ -58,6 +58,13 @@ app.layout = dbc.Container([
                 id='dropdown-buttons-chr'
             ),
             html.Br(),
+            html.P('Search', className="fs-5"),
+            html.Div([
+                dcc.Input(id='input-NLR-id', type='text', placeholder="ex. TraesCS1A03G0009700"),
+                html.Button(id='submit-NLR-id', n_clicks=0, children='Submit'),
+                html.Div(id='under_button'),
+            ]),
+            html.Br(),
             html.Div('Additional data', className="fs-5"),
             html.P('Expression data'),
             dcc.Dropdown(
@@ -87,6 +94,7 @@ app.layout = dbc.Container([
         ),
         
         dbc.Col([
+            dcc.Store(id='stored-range'),
             dbc.Row([
                 html.B('NLR locations', className="text-center fs-4"),
                 html.Div(
