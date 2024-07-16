@@ -11,7 +11,7 @@ import pathlib
 
 from modules.phylogenetic_tree import make_tree_figure
 from modules.genome_view import make_gene_markers
-from modules.additional_data import make_expression_figure, make_chippeak_figure
+from modules.additional_data import make_expression_figure, make_chippeak_figure, make_ortholog_figure
 
 #path
 # BASE_PATH = pathlib.Path('__file__').parent.resolve()
