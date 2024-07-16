@@ -29,6 +29,9 @@ chromosomes.extend(table_data.Chr.unique())
 # read expression data
 RNA_seq_data = pd.read_csv(DATA_PATH.joinpath("sample_RNAseq_counts.csv"), index_col=0)
 
+# read ortholog data
+ortholog_data = pd.read_csv(DATA_PATH.joinpath("ortholog_data.csv"), index_col=0)
+
 # radio items
 histone_list = ["H3K4me3", "H3K9ac", "H3K27me3"]
 chip_treats = ["ABA", "CS_seedlings", "CS_leaf", "CS_spikelet_Feekes10", "MeJA", "SA", "Not displayed"]
@@ -87,7 +90,7 @@ app.layout = dbc.Container([
             ),
             html.Br(),
             html.P('Core NLRs'),
-            html.Div('Not yet...')
+            html.Div('Orthologs in Tritucum/Aegilops species is displayed below.')
         ],
         id="left-column",
         width=2
@@ -125,6 +128,13 @@ app.layout = dbc.Container([
             ]),
             
             dbc.Row([
+                dbc.Col([
+                    html.B("Ortholog NLRs", className="fs-4"),
+                ],
+                id="ortholog-card"),
+            ]),
+            
+            dbc.Row([
                 html.B('NLR list', className="text-center fs-4"),
                 html.Div(id="NLR-list-table"),
             ]),
@@ -133,6 +143,7 @@ app.layout = dbc.Container([
         id="right-column")
     ])
 ], fluid=False)
+
 
 # Show red marker in phylogenetic tree triggered by hover NLRs
 @callback(
@@ -260,6 +271,7 @@ def update_additional_info(relayoutData, chr_chosen, exp_chosen, chip1_chosen, c
 # Show other information of viewd NLRs
 @callback(
     Output('NLR-list-table', 'children'),
+    Output('ortholog-card', 'children'),
     Input('location-graph', 'relayoutData'),
     Input('dropdown-buttons-chr', 'value'),
     Input('submit-NLR-id', 'n_clicks'),
@@ -272,16 +284,15 @@ def update_data(relayoutData, chr_chosen, n_click, NLR_id):
     else:
         if "submit-NLR-id" == ctx.triggered_id:
             tmp_pos = table_data.loc[table_data["NLR id"] == NLR_id, ["Chr", "Start", "End"]].values[0]
-            tmp_table = table_data[(table_data.Chr == tmp_pos[0]) & (table_data.Start >= tmp_pos[1]-50000) & (table_data.End <= tmp_pos[2]+50000)]
+            tmp_df = table_data[(table_data.Chr == tmp_pos[0]) & (table_data.Start >= tmp_pos[1]-50000) & (table_data.End <= tmp_pos[2]+50000)]
         elif ("xaxis.range[0]" not in relayoutData) | (ctx.triggered_id == "dropdown-buttons-chr"):
-            tmp_table = table_data[table_data.Chr == chr_chosen]
+            tmp_df = table_data[table_data.Chr == chr_chosen]
         else:
             xmin = relayoutData["xaxis.range[0]"]
             xmax = relayoutData["xaxis.range[1]"]
-            tmp_table = table_data[(table_data.Chr == chr_chosen) & (table_data.Start >= xmin) & (table_data.End <= xmax)]
-        tmp_df = tmp_table
+            tmp_df = table_data[(table_data.Chr == chr_chosen) & (table_data.Start >= xmin) & (table_data.End <= xmax)]
     
-    return html.Div(
+    table_div = html.Div(
         [
             dash_table.DataTable(data=tmp_df.loc[:, ["NLR id","Chr","Start","End","Strand","Domain"]].to_dict('records'),
                                  page_size=10,
@@ -297,6 +308,20 @@ def update_data(relayoutData, chr_chosen, n_click, NLR_id):
                                  id="table")
         ]
     )
+    
+    tmp_NLR_ids = tmp_df["NLR id"].values
+    if len(tmp_NLR_ids) > 20:
+        ortholog_div = [
+            html.B("Ortholog NLRs", className="fs-4"),
+            html.P('Please select chromosome/scaffold/contig & Zoom-in more! (show ~20 NLRs)')
+        ]
+    else:
+        ortholog_fig = make_ortholog_figure(ortholog_data, tmp_df["NLR id"].values)
+        ortholog_div = [
+            html.B("Ortholog NLRs", className="fs-4"),
+            dcc.Graph(figure=ortholog_fig, id='ortholog-figure')
+        ]
+    return table_div, ortholog_div
 
 
 # Run the app
