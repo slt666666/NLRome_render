@@ -214,3 +214,71 @@ def make_chippeak_figure(histone, treat, table_data, DATA_PATH):
     )
 
     return fig
+
+def make_ortholog_figure(ortholog_data, NLR_ids):
+    wheat_data = ortholog_data[ortholog_data.index.str.contains("Triticum_aestivum")]
+    wild_data = ortholog_data[~ortholog_data.index.str.contains("Triticum_aestivum")]
+    wheat_df = pd.melt(wheat_data.loc[:, NLR_ids], ignore_index=False).fillna(0)
+    wild_df = pd.melt(wild_data.loc[:, NLR_ids], ignore_index=False).fillna(0)
+
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+        column_widths=[0.75, 0.25],
+        horizontal_spacing=0.03,
+        subplot_titles=("Triticum aestivum", "Other Tritucum/Aegilops"),
+    )
+    colors = ["lightgray" if i == 0 else "black" for i in wheat_df.value.values]
+    hovertexts = ["No similar NLR" if i == 0 else f"{int(i)} similar NLRs" for i in wheat_df.value.values]
+    fig.add_trace(
+        go.Scatter(
+            x=wheat_df.index.values,
+            y=wheat_df.variable.values,
+            mode='markers',
+            text=hovertexts,
+            marker=dict(
+                size=14,
+                color=colors,
+            )
+        ),
+        row=1,
+        col=1,
+    )
+    colors = ["lightgray" if i == 0 else "black" for i in wild_df.value.values]
+    hovertexts = ["No similar NLR" if i == 0 else f"{int(i)} similar NLRs" for i in wild_df.value.values]
+    fig.add_trace(
+        go.Scatter(
+            x=wild_df.index.values,
+            y=wild_df.variable.values,
+            mode='markers',
+            text=hovertexts,
+            marker=dict(
+                size=14,
+                color=colors,
+            )
+        ),
+        row=1,
+        col=2,
+    )
+    fig.update_layout(
+        height=200+20*len(wild_df.variable.unique()),
+        xaxis=dict(
+            showgrid=False, 
+            zeroline=False
+        ),
+        yaxis=dict(
+            showgrid=True, 
+            zeroline=False
+        ),
+        showlegend=False,
+        plot_bgcolor = "#f5f5f5",
+        margin=dict(t=40, l=150),
+        yaxis2_showticklabels=False,
+    )
+    fig.update_xaxes(
+        fixedrange=True,
+    )
+    fig.update_yaxes(
+        fixedrange=True
+    )
+    return fig
