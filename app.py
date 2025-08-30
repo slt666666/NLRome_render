@@ -1,5 +1,6 @@
 # Import packages
 from dash import Dash, html, dash_table, dcc, callback, Output, Input, State, Patch, ctx
+import dash_bio as dashbio
 import pandas as pd
 import numpy as np
 from Bio import Phylo
@@ -12,6 +13,7 @@ import pathlib
 from modules.phylogenetic_tree import make_tree_figure
 from modules.genome_view import make_gene_markers
 from modules.additional_data import make_expression_figure, make_chippeak_figure, make_ortholog_figure
+from modules.structure_view import make_structure_info
 
 #path
 # BASE_PATH = pathlib.Path('__file__').parent.resolve()
@@ -28,6 +30,9 @@ chromosomes.extend(table_data.Chr.unique())
 
 # read expression data
 RNA_seq_data = pd.read_csv(DATA_PATH.joinpath("sample_RNAseq_counts.csv"), index_col=0)
+
+# read structure data
+AF3_data = pd.read_csv(DATA_PATH.joinpath("CS_structure_info.csv"))
 
 # read ortholog data
 ortholog_data = pd.read_csv(DATA_PATH.joinpath("ortholog_data.csv"), index_col=0)
@@ -47,6 +52,7 @@ external_stylesheets = [dbc.themes.CERULEAN]
 app = Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
 server = app.server
 
+
 # App layout
 app.layout = dbc.Container([
     
@@ -57,7 +63,7 @@ app.layout = dbc.Container([
             html.P('Chromosome'),
             dcc.Dropdown(
                 chromosomes,
-                chromosomes[0],
+                chromosomes[1],
                 id='dropdown-buttons-chr'
             ),
             html.Br(),
@@ -126,6 +132,14 @@ app.layout = dbc.Container([
                 width=8,
                 id="additional-card"), 
             ]),
+
+            dbc.Row([
+                dbc.Col([
+                    dbc.Row(id="structure_3D")
+                ],
+                width=8,
+                id="structure-card")
+            ]),
             
             dbc.Row([
                 dbc.Col([
@@ -183,6 +197,39 @@ def update_graph(chr_chosen, n_clicks, NLR_id):
             under_button = f"{NLR_id} is not found in NLR list"
     fig = make_gene_markers(table_data, chr_chosen, zoom_range)
     return fig, under_button, chr_chosen
+
+# Show structure triggered by hover NLRs
+@callback(
+    Output('structure_3D', 'children'),
+    Input('location-graph', 'hoverData'),
+)
+def display_select_NLR_structure(hover_info):
+    if hover_info is not None:
+        hover_NLR_id = table_data.loc[(table_data.Chr == hover_info['points'][0]['y']) & (table_data.Graph_pos == hover_info['points'][0]['x']), "NLR id"].values[0]
+    else:
+        hover_NLR_id = None
+        structure_div = dbc.Col([])
+    if (hover_NLR_id is not None) & (str(hover_NLR_id).upper() in list(AF3_data["Gene ID"].values)):
+        tmp_structure_styles, tmp_structure_data, tmp_reamrks = make_structure_info(hover_NLR_id, AF3_data)
+        structure_div = dbc.Col([
+                            html.B('Structure prediction', className="fs-4"),
+                            html.Div(hover_NLR_id),
+                            html.Div(tmp_reamrks),
+                            html.Div([
+                                dashbio.Molecule3dViewer(
+                                    id='dashbio-default-molecule3d',
+                                    modelData=tmp_structure_data,
+                                    styles=tmp_structure_styles,
+                                    backgroundColor='#696969',
+                                    backgroundOpacity=0.2,
+                                ),
+                            ])
+                        ]),
+    else:
+        structure_div = dbc.Col([
+            html.Div(f"No structure data of {hover_NLR_id}"),
+        ])
+    return structure_div
 
 # Show Additional info
 @callback(
