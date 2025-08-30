@@ -1,6 +1,6 @@
 dash==2.17.1
 dash-bio==1.0.2
-numpy
+numpy==1.23.5
 pandas
 plotly
 dash_bootstrap_components
