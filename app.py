@@ -137,7 +137,7 @@ app.layout = dbc.Container([
                 dbc.Col([
                     dbc.Row(id="structure_3D")
                 ],
-                width=8,
+                width=6,
                 id="structure-card")
             ]),
             
@@ -211,20 +211,30 @@ def display_select_NLR_structure(hover_info):
         structure_div = dbc.Col([])
     if (hover_NLR_id is not None) & (str(hover_NLR_id).upper() in list(AF3_data["Gene ID"].values)):
         tmp_structure_styles, tmp_structure_data, tmp_reamrks = make_structure_info(hover_NLR_id, AF3_data)
-        structure_div = dbc.Col([
-                            html.B('Structure prediction', className="fs-4"),
-                            html.Div(hover_NLR_id),
-                            html.Div(tmp_reamrks),
-                            html.Div([
-                                dashbio.Molecule3dViewer(
-                                    id='dashbio-default-molecule3d',
-                                    modelData=tmp_structure_data,
-                                    styles=tmp_structure_styles,
-                                    backgroundColor='#696969',
-                                    backgroundOpacity=0.2,
-                                ),
-                            ])
-                        ]),
+        structure_div = dbc.Row([
+            dbc.Col([
+                html.B('Structure prediction', className="fs-4"),
+                html.Div(hover_NLR_id),
+                html.Div(tmp_reamrks),
+                dbc.Col([
+                    html.Div([
+                        dashbio.Molecule3dViewer(
+                            id='dashbio-default-molecule3d',
+                            modelData=tmp_structure_data,
+                            styles=tmp_structure_styles,
+                            backgroundColor='#696969',
+                            backgroundOpacity=0.2,
+                        ),
+                    ]),
+                ]),
+                dbc.Col([
+                    html.Span('■ CC ', style={'color': 'gray', 'fontSize': 14}),
+                    html.Span('■ NB ', style={'color': 'orange', 'fontSize': 14}),
+                    html.Span('■ LRR ', style={'color': 'blue', 'fontSize': 14}),                
+                    html.Span('■ Additional ', style={'color': 'purple', 'fontSize': 14}),                
+                ])
+            ]),
+        ])
     else:
         structure_div = dbc.Col([
             html.Div(f"No structure data of {hover_NLR_id}"),
